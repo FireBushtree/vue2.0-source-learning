@@ -3,6 +3,10 @@ import { newArrayProto } from "./array";
 class Observer {
   constructor(data) {
     data.__ob__ = this;
+    Object.defineProperty(data, '__ob__', {
+      value: this,
+      enumerable: false,
+    })
 
     if (Array.isArray(data)) {
       data.__proto__ = newArrayProto;
@@ -40,6 +44,7 @@ function defineReactive(data, key, val) {
       if (newVal === val) {
         return;
       }
+      observe(newVal)
 
       val = newVal;
     },

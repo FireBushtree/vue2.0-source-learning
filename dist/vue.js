@@ -4,6 +4,69 @@
   (global = typeof globalThis !== 'undefined' ? globalThis : global || self, global.Vue = factory());
 })(this, (function () { 'use strict';
 
+  var ncname = "[a-zA-Z_][\\-\\.0-9_a-zA-Z]*";
+  var qnameCapture = "((?:".concat(ncname, "\\:)?").concat(ncname, ")");
+  var startTagOpen = new RegExp("^<".concat(qnameCapture));
+  var startTagClose = /^\s*(\/?)>/;
+  var endTag = new RegExp("^<\\/".concat(qnameCapture, "[^>]*>"));
+  var attribute = /^\s*([^\s"'<>\/=]+)(?:\s*(=)\s*(?:"([^"]*)"+|'([^']*)'+|([^\s"'=<>`]+)))?/;
+  function parseHTML(html) {
+    var _loop = function _loop() {
+      var textEnd = html.indexOf('<');
+      function advance(n) {
+        html = html.substring(n);
+      }
+      function parseStartTag() {
+        var start = html.match(startTagOpen);
+        if (start) {
+          var match = {
+            tagName: start[1],
+            attrs: []
+          };
+          advance(start[0].length);
+          var attr;
+          var end;
+          while (!(end = html.match(startTagClose)) && (attr = html.match(attribute))) {
+            advance(attr[0].length);
+            match.attrs.push({
+              name: attr[1],
+              value: attr[3] || attr[4] || attr[5]
+            });
+          }
+          if (end) {
+            advance(end[0].length);
+          }
+          return match;
+        }
+        return false;
+      }
+      if (textEnd === 0) {
+        var startTagMatch = parseStartTag();
+        if (startTagMatch) {
+          return "continue";
+        }
+        var endTagName = html.match(endTag);
+        if (endTagName) {
+          advance(endTagName[0].length);
+          return "continue";
+        }
+      }
+      if (textEnd > 0) {
+        var text = html.substring(0, textEnd);
+        if (text) {
+          advance(text.length);
+        }
+      }
+    };
+    while (html) {
+      var _ret = _loop();
+      if (_ret === "continue") continue;
+    }
+  }
+  function compileToFunction(template) {
+    parseHTML(template);
+  }
+
   function _typeof(obj) {
     "@babel/helpers - typeof";
 
@@ -65,6 +128,10 @@
     function Observer(data) {
       _classCallCheck(this, Observer);
       data.__ob__ = this;
+      Object.defineProperty(data, '__ob__', {
+        value: this,
+        enumerable: false
+      });
       if (Array.isArray(data)) {
         data.__proto__ = newArrayProto;
         this.observeArray(data);
@@ -103,6 +170,7 @@
         if (newVal === val) {
           return;
         }
+        observe(newVal);
         val = newVal;
       }
     });
@@ -147,9 +215,27 @@
 
   function initMixin(Vue) {
     Vue.prototype._init = function (options) {
-      var ctx = this;
-      ctx.$options = options;
-      initState(ctx);
+      var vm = this;
+      vm.$options = options;
+      initState(vm);
+      if (options.el) {
+        vm.$mount(options.el);
+      }
+    };
+    Vue.prototype.$mount = function (el) {
+      var vm = this;
+      el = document.querySelector(el);
+      var ops = vm.$options;
+      var template;
+
+      // 暂时不支持 ops.template 提供模板
+      if (el) {
+        template = el.outerHTML;
+      }
+      if (template) {
+        var render = compileToFunction(template);
+        ops.render = render;
+      }
     };
   }
 
