@@ -11,8 +11,45 @@
   var endTag = new RegExp("^<\\/".concat(qnameCapture, "[^>]*>"));
   var attribute = /^\s*([^\s"'<>\/=]+)(?:\s*(=)\s*(?:"([^"]*)"+|'([^']*)'+|([^\s"'=<>`]+)))?/;
   function parseHTML(html) {
+    var ELEMENT_TYPE = 1;
+    var TEXT_TYPE = 3;
+    var stack = [];
+    var currentTag = undefined;
+    var root = undefined;
+    function createASTElement(tag, attrs) {
+      return {
+        tag: tag,
+        type: ELEMENT_TYPE,
+        children: [],
+        attrs: attrs,
+        parent: null
+      };
+    }
+    function start(tagName, attrs) {
+      var ast = createASTElement(tagName, attrs);
+      if (!root) {
+        root = ast;
+      } else if (currentTag) {
+        currentTag.children.push(ast);
+        ast.parent = currentTag;
+      }
+      currentTag = ast;
+      stack.push(ast);
+    }
+    function chars(text) {
+      text = text.replace(/\s/g, "");
+      text && currentTag.children.push({
+        type: TEXT_TYPE,
+        text: text,
+        parent: currentTag
+      });
+    }
+    function end(tagName) {
+      stack.pop();
+      currentTag = stack[stack.length - 1];
+    }
     var _loop = function _loop() {
-      var textEnd = html.indexOf('<');
+      var textEnd = html.indexOf("<");
       function advance(n) {
         html = html.substring(n);
       }
@@ -25,16 +62,16 @@
           };
           advance(start[0].length);
           var attr;
-          var end;
-          while (!(end = html.match(startTagClose)) && (attr = html.match(attribute))) {
+          var _end;
+          while (!(_end = html.match(startTagClose)) && (attr = html.match(attribute))) {
             advance(attr[0].length);
             match.attrs.push({
               name: attr[1],
               value: attr[3] || attr[4] || attr[5]
             });
           }
-          if (end) {
-            advance(end[0].length);
+          if (_end) {
+            advance(_end[0].length);
           }
           return match;
         }
@@ -43,10 +80,12 @@
       if (textEnd === 0) {
         var startTagMatch = parseStartTag();
         if (startTagMatch) {
+          start(startTagMatch.tagName, startTagMatch.attrs);
           return "continue";
         }
         var endTagName = html.match(endTag);
         if (endTagName) {
+          end(endTagName[1]);
           advance(endTagName[0].length);
           return "continue";
         }
@@ -54,6 +93,7 @@
       if (textEnd > 0) {
         var text = html.substring(0, textEnd);
         if (text) {
+          chars(text);
           advance(text.length);
         }
       }
@@ -62,9 +102,17 @@
       var _ret = _loop();
       if (_ret === "continue") continue;
     }
+    return root;
+  }
+
+  function genProps(attrs) {}
+  function codegen(ast) {
+    "_c('".concat(ast.tag, "', ").concat(ast.attrs.length > 0 ? genProps(ast.attrs) : 'null', ")");
   }
   function compileToFunction(template) {
-    parseHTML(template);
+    var ast = parseHTML(template);
+    console.log(ast);
+    codegen(ast);
   }
 
   function _typeof(obj) {
