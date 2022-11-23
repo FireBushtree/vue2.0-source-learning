@@ -88,9 +88,10 @@
   var startTagClose = /^\s*(\/?)>/;
   var endTag = new RegExp("^<\\/".concat(qnameCapture, "[^>]*>"));
   var attribute = /^\s*([^\s"'<>\/=]+)(?:\s*(=)\s*(?:"([^"]*)"+|'([^']*)'+|([^\s"'=<>`]+)))?/;
+  var defaultTagRE = /\{\{((?:.|\r?\n)+?)\}\}/g;
+  var ELEMENT_TYPE = 1;
+  var TEXT_TYPE = 3;
   function parseHTML(html) {
-    var ELEMENT_TYPE = 1;
-    var TEXT_TYPE = 3;
     var stack = [];
     var currentTag = undefined;
     var root = undefined;
@@ -115,7 +116,7 @@
       stack.push(ast);
     }
     function chars(text) {
-      text = text.replace(/\s/g, "");
+      text = text.replace(/\s/g, '');
       text && currentTag.children.push({
         type: TEXT_TYPE,
         text: text,
@@ -127,7 +128,7 @@
       currentTag = stack[stack.length - 1];
     }
     var _loop = function _loop() {
-      var textEnd = html.indexOf("<");
+      var textEnd = html.indexOf('<');
       function advance(n) {
         html = html.substring(n);
       }
@@ -201,14 +202,47 @@
     });
     return "{".concat(str.slice(0, -1), "}");
   }
+  function gen(node) {
+    if (node.type === ELEMENT_TYPE) {
+      return codegen(node);
+    } else if (node.type === TEXT_TYPE) {
+      if (!defaultTagRE.test(node.text)) {
+        return "_v(".concat(JSON.stringify(node.text), ")");
+      } else {
+        var tokens = [];
+        var match;
+        var lastIndex = 0;
+        defaultTagRE.lastIndex = 0;
+        while (match = defaultTagRE.exec(node.text)) {
+          if (match.index > lastIndex) {
+            var middleText = node.text.slice(lastIndex, match.index);
+            tokens.push(JSON.stringify(middleText));
+          }
+          tokens.push("_s(".concat(match[1], ")"));
+          lastIndex = match.index + match[0].length;
+        }
+        if (lastIndex < node.text.length - 1) {
+          tokens.push(JSON.stringify(node.text.slice(lastIndex)));
+        }
+        return "_v(".concat(tokens.join('+'), ")");
+      }
+    }
+  }
+  function genChildren(children) {
+    if (children) {
+      return children.map(function (item) {
+        return gen(item);
+      }).join(',');
+    }
+  }
   function codegen(ast) {
-    var code = "_c('".concat(ast.tag, "', ").concat(ast.attrs.length > 0 ? genProps(ast.attrs) : 'null', " ").concat(ast.children.length ? ",".concat(ast.children) : '', ")");
-    console.log(code);
+    var code = "_c('".concat(ast.tag, "', ").concat(ast.attrs.length > 0 ? genProps(ast.attrs) : 'null', " ").concat(ast.children.length ? ",".concat(genChildren(ast.children)) : '', ")");
+    return code;
   }
   function compileToFunction(template) {
     var ast = parseHTML(template);
-    console.log(ast);
-    codegen(ast);
+    var render = codegen(ast);
+    console.log(render);
   }
 
   var oldArrayProto = Array.prototype;
