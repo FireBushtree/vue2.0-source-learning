@@ -57,12 +57,19 @@ function genChildren(children) {
 function codegen(ast) {
   const code = `_c('${ast.tag}', ${
     ast.attrs.length > 0 ? genProps(ast.attrs) : 'null'
-  } ${ast.children.length ? `,${genChildren(ast.children)}` : ''})`
+    } ${ast.children.length ? `,${genChildren(ast.children)}` : ''})`
   return code
 }
 
 export function compileToFunction(template) {
   const ast = parseHTML(template)
-  const render = codegen(ast)
-  console.log(render)
+  console.log(ast)
+  let code = codegen(ast)
+  code = `with(this) {
+    return ${code}
+  }`
+  console.log(code)
+  const render = new Function(code)
+
+  return render
 }

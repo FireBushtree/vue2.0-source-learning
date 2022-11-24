@@ -241,8 +241,58 @@
   }
   function compileToFunction(template) {
     var ast = parseHTML(template);
-    var render = codegen(ast);
-    console.log(render);
+    console.log(ast);
+    var code = codegen(ast);
+    code = "with(this) {\n    return ".concat(code, "\n  }");
+    console.log(code);
+    var render = new Function(code);
+    return render;
+  }
+
+  function createElementVNode(vm, tag, data) {
+    for (var _len = arguments.length, children = new Array(_len > 3 ? _len - 3 : 0), _key = 3; _key < _len; _key++) {
+      children[_key - 3] = arguments[_key];
+    }
+    console.log(children);
+    data = data || {};
+    var key = data.key;
+    key && delete data.key;
+    return vnode(vm, tag, key, data, children);
+  }
+  function createTextVNode(vm, text) {
+    return vnode(vm, undefined, undefined, undefined, undefined, text);
+  }
+  function vnode(vm, tag, key, data, children, text) {
+    return {
+      vm: vm,
+      tag: tag,
+      key: key,
+      data: data,
+      children: children,
+      text: text
+    };
+  }
+
+  function initLifyCycle(Vue) {
+    Vue.prototype._update = function (vnode) {
+      console.log('update', vnode);
+    };
+    Vue.prototype._c = function () {
+      return createElementVNode.apply(void 0, [this].concat(Array.prototype.slice.call(arguments)));
+    };
+    Vue.prototype._v = function () {
+      return createTextVNode.apply(void 0, [this].concat(Array.prototype.slice.call(arguments)));
+    };
+    Vue.prototype._s = function (value) {
+      return JSON.stringify(value);
+    };
+    Vue.prototype._render = function () {
+      var vm = this;
+      return vm.$options.render.call(vm);
+    };
+  }
+  function mountComponent(vm, el) {
+    vm._update(vm._render());
   }
 
   var oldArrayProto = Array.prototype;
@@ -308,11 +358,9 @@
       configurable: true,
       enumerable: true,
       get: function get() {
-        console.log("---get---");
         return val;
       },
       set: function set(newVal) {
-        console.log("---set---");
         if (newVal === val) {
           return;
         }
@@ -322,7 +370,7 @@
     });
   }
   function observe(data) {
-    if (_typeof(data) !== "object" && data !== null) {
+    if (_typeof(data) !== 'object' && data !== null) {
       return;
     }
     if (data.__ob__ instanceof Observer) {
@@ -382,6 +430,7 @@
         var render = compileToFunction(template);
         ops.render = render;
       }
+      mountComponent(vm);
     };
   }
 
@@ -389,6 +438,7 @@
     this._init(options);
   }
   initMixin(Vue);
+  initLifyCycle(Vue);
 
   return Vue;
 
