@@ -241,22 +241,19 @@
   }
   function compileToFunction(template) {
     var ast = parseHTML(template);
-    console.log(ast);
     var code = codegen(ast);
     code = "with(this) {\n    return ".concat(code, "\n  }");
-    console.log(code);
     var render = new Function(code);
     return render;
   }
 
   function createElementVNode(vm, tag, data) {
-    for (var _len = arguments.length, children = new Array(_len > 3 ? _len - 3 : 0), _key = 3; _key < _len; _key++) {
-      children[_key - 3] = arguments[_key];
-    }
-    console.log(children);
     data = data || {};
     var key = data.key;
     key && delete data.key;
+    for (var _len = arguments.length, children = new Array(_len > 3 ? _len - 3 : 0), _key = 3; _key < _len; _key++) {
+      children[_key - 3] = arguments[_key];
+    }
     return vnode(vm, tag, key, data, children);
   }
   function createTextVNode(vm, text) {
@@ -273,9 +270,49 @@
     };
   }
 
+  function patchProps(el, props) {
+    for (var key in props) {
+      if (key === 'style') {
+        for (var styleName in props[key]) {
+          el.style[styleName] = props[key][styleName];
+        }
+      } else {
+        el.setAttribute(key, props[key]);
+      }
+    }
+  }
+  function createElm(vnode) {
+    var tag = vnode.tag,
+      data = vnode.data,
+      children = vnode.children,
+      text = vnode.text;
+    if (typeof tag === 'string') {
+      vnode.el = document.createElement(tag);
+      patchProps(vnode.el, data);
+      children.forEach(function (item) {
+        vnode.el.appendChild(createElm(item));
+      });
+    } else {
+      vnode.el = document.createTextNode(text);
+    }
+    return vnode.el;
+  }
+  function patch(oldVNode, vnode) {
+    var isRealElement = oldVNode.nodeType;
+    if (isRealElement) {
+      var elm = oldVNode;
+      var parentElm = elm.parentNode;
+      var newElm = createElm(vnode);
+      parentElm.insertBefore(newElm, elm.nextSibling);
+      parentElm.removeChild(elm);
+      return newElm;
+    }
+  }
   function initLifyCycle(Vue) {
     Vue.prototype._update = function (vnode) {
-      console.log('update', vnode);
+      var vm = this;
+      var el = vm.$el;
+      vm.$el = patch(el, vnode);
     };
     Vue.prototype._c = function () {
       return createElementVNode.apply(void 0, [this].concat(Array.prototype.slice.call(arguments)));
@@ -292,6 +329,7 @@
     };
   }
   function mountComponent(vm, el) {
+    vm.$el = el;
     vm._update(vm._render());
   }
 
@@ -430,7 +468,7 @@
         var render = compileToFunction(template);
         ops.render = render;
       }
-      mountComponent(vm);
+      mountComponent(vm, el);
     };
   }
 

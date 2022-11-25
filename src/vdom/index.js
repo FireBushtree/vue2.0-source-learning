@@ -1,5 +1,4 @@
 export function createElementVNode(vm, tag, data, ...children) {
-  console.log(children)
   data = data || {}
   const key = data.key
   key && delete data.key
