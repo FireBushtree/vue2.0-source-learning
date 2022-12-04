@@ -1,3 +1,4 @@
+import { Watcher } from './observe/watcher'
 import { createElementVNode, createTextVNode } from './vdom/index'
 
 function patchProps(el, props) {
@@ -40,6 +41,7 @@ function patch(oldVNode, vnode) {
 
     return newElm
   } else {
+    // TODO diff
   }
 }
 
@@ -59,7 +61,7 @@ export function initLifyCycle(Vue) {
   }
 
   Vue.prototype._s = function (value) {
-    return JSON.stringify(value)
+    return typeof value === 'string' ? value : JSON.stringify(value)
   }
 
   Vue.prototype._render = function () {
@@ -70,5 +72,8 @@ export function initLifyCycle(Vue) {
 
 export function mountComponent(vm, el) {
   vm.$el = el
-  vm._update(vm._render())
+
+  const updateComponent = () => vm._update(vm._render())
+
+  new Watcher(vm, updateComponent, true)
 }

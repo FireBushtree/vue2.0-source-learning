@@ -38,8 +38,17 @@
   function _slicedToArray(arr, i) {
     return _arrayWithHoles(arr) || _iterableToArrayLimit(arr, i) || _unsupportedIterableToArray(arr, i) || _nonIterableRest();
   }
+  function _toConsumableArray(arr) {
+    return _arrayWithoutHoles(arr) || _iterableToArray(arr) || _unsupportedIterableToArray(arr) || _nonIterableSpread();
+  }
+  function _arrayWithoutHoles(arr) {
+    if (Array.isArray(arr)) return _arrayLikeToArray(arr);
+  }
   function _arrayWithHoles(arr) {
     if (Array.isArray(arr)) return arr;
+  }
+  function _iterableToArray(iter) {
+    if (typeof Symbol !== "undefined" && iter[Symbol.iterator] != null || iter["@@iterator"] != null) return Array.from(iter);
   }
   function _iterableToArrayLimit(arr, i) {
     var _i = arr == null ? null : typeof Symbol !== "undefined" && arr[Symbol.iterator] || arr["@@iterator"];
@@ -77,6 +86,9 @@
     if (len == null || len > arr.length) len = arr.length;
     for (var i = 0, arr2 = new Array(len); i < len; i++) arr2[i] = arr[i];
     return arr2;
+  }
+  function _nonIterableSpread() {
+    throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
   }
   function _nonIterableRest() {
     throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method.");
@@ -247,6 +259,102 @@
     return render;
   }
 
+  var id$1 = 0;
+  var Dep = /*#__PURE__*/function () {
+    function Dep() {
+      _classCallCheck(this, Dep);
+      this.id = id$1++;
+      this.subs = []; // save watcher
+    }
+    _createClass(Dep, [{
+      key: "depend",
+      value: function depend() {
+        Dep.target.addDep(this);
+      }
+    }, {
+      key: "addSub",
+      value: function addSub(watcher) {
+        this.subs.push(watcher);
+      }
+    }, {
+      key: "notify",
+      value: function notify() {
+        this.subs.forEach(function (item) {
+          return item.update();
+        });
+      }
+    }]);
+    return Dep;
+  }();
+  Dep.target = null;
+
+  var id = 0;
+  var Watcher = /*#__PURE__*/function () {
+    function Watcher(vm, callback, isRenderWatcher) {
+      _classCallCheck(this, Watcher);
+      this.id = id++;
+      this.isRenderWatcher = isRenderWatcher;
+      this.getter = callback;
+      this.deps = [];
+      this.depSet = new Set();
+      this.get();
+    }
+    _createClass(Watcher, [{
+      key: "update",
+      value: function update() {
+        queueWatcher(this);
+      }
+    }, {
+      key: "addDep",
+      value: function addDep(dep) {
+        if (this.depSet.has(dep.id)) {
+          return;
+        }
+        this.deps.push(dep);
+        this.depSet.add(dep.id);
+        dep.addSub(this);
+      }
+    }, {
+      key: "get",
+      value: function get() {
+        Dep.target = this;
+        this.getter();
+        Dep.target = null;
+      }
+    }, {
+      key: "run",
+      value: function run() {
+        console.log('run');
+        this.get();
+      }
+    }]);
+    return Watcher;
+  }();
+  var watcherQueue = [];
+  var has = {};
+  var pending = false;
+  function flushWatcherQueue() {
+    var copyedQueue = _toConsumableArray(watcherQueue);
+    watcherQueue = [];
+    has = {};
+    pending = false;
+    copyedQueue.forEach(function (item) {
+      item.run();
+    });
+  }
+  function queueWatcher(watcher) {
+    var id = watcher.id;
+    if (has[id]) {
+      return;
+    }
+    watcherQueue.push(watcher);
+    has[id] = watcher;
+    if (!pending) {
+      pending = true;
+      setTimeout(flushWatcherQueue);
+    }
+  }
+
   function createElementVNode(vm, tag, data) {
     data = data || {};
     var key = data.key;
@@ -321,7 +429,7 @@
       return createTextVNode.apply(void 0, [this].concat(Array.prototype.slice.call(arguments)));
     };
     Vue.prototype._s = function (value) {
-      return JSON.stringify(value);
+      return typeof value === 'string' ? value : JSON.stringify(value);
     };
     Vue.prototype._render = function () {
       var vm = this;
@@ -330,7 +438,10 @@
   }
   function mountComponent(vm, el) {
     vm.$el = el;
-    vm._update(vm._render());
+    var updateComponent = function updateComponent() {
+      return vm._update(vm._render());
+    };
+    new Watcher(vm, updateComponent, true);
   }
 
   var oldArrayProto = Array.prototype;
@@ -392,10 +503,16 @@
   }();
   function defineReactive(data, key, val) {
     observe(val);
+
+    // every reactive data has a dep
+    var dep = new Dep();
     Object.defineProperty(data, key, {
       configurable: true,
       enumerable: true,
       get: function get() {
+        if (Dep.target) {
+          dep.depend();
+        }
         return val;
       },
       set: function set(newVal) {
@@ -404,6 +521,7 @@
         }
         observe(newVal);
         val = newVal;
+        dep.notify();
       }
     });
   }
