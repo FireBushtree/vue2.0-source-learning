@@ -34,7 +34,6 @@ export class Watcher {
   }
 
   run() {
-    console.log('run')
     this.get()
   }
 }
@@ -66,6 +65,47 @@ function queueWatcher(watcher) {
 
   if (!pending) {
     pending = true
-    setTimeout(flushWatcherQueue)
+    nextTick(flushWatcherQueue)
+  }
+}
+
+let callbackList = []
+let waiting = false
+
+function flushCallbackList() {
+  const copyedCallbackList = [...callbackList]
+  callbackList = []
+  waiting = false
+  copyedCallbackList.forEach(item => item())
+
+}
+
+export function nextTick(callback) {
+  callbackList.push(callback)
+
+  if (!waiting) {
+    timerFunc()
+    waiting = true
+  }
+}
+
+let timerFunc
+
+if (Promise) {
+  timerFunc = () => {
+    Promise.resolve().then(flushCallbackList)
+  }
+} else if(MutationObserver) {
+  const observer = new MutationObserver(flushCallbackList)
+  const textNode = document.createTextNode(1)
+  observer.observe(textNode, {
+    characterData: true
+  })
+  timerFunc = () => {
+    textNode.textContent = 2
+  }
+} else if (setTimeout) {
+  timerFunc = () => {
+    setTimeout(flushCallbackList)
   }
 }

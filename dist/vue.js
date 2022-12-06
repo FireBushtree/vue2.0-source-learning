@@ -324,7 +324,6 @@
     }, {
       key: "run",
       value: function run() {
-        console.log('run');
         this.get();
       }
     }]);
@@ -351,8 +350,44 @@
     has[id] = watcher;
     if (!pending) {
       pending = true;
-      setTimeout(flushWatcherQueue);
+      nextTick(flushWatcherQueue);
     }
+  }
+  var callbackList = [];
+  var waiting = false;
+  function flushCallbackList() {
+    var copyedCallbackList = _toConsumableArray(callbackList);
+    callbackList = [];
+    waiting = false;
+    copyedCallbackList.forEach(function (item) {
+      return item();
+    });
+  }
+  function nextTick(callback) {
+    callbackList.push(callback);
+    if (!waiting) {
+      timerFunc();
+      waiting = true;
+    }
+  }
+  var timerFunc;
+  if (Promise) {
+    timerFunc = function timerFunc() {
+      Promise.resolve().then(flushCallbackList);
+    };
+  } else if (MutationObserver) {
+    var observer = new MutationObserver(flushCallbackList);
+    var textNode = document.createTextNode(1);
+    observer.observe(textNode, {
+      characterData: true
+    });
+    timerFunc = function timerFunc() {
+      textNode.textContent = 2;
+    };
+  } else if (setTimeout) {
+    timerFunc = function timerFunc() {
+      setTimeout(flushCallbackList);
+    };
   }
 
   function createElementVNode(vm, tag, data) {
@@ -417,6 +452,7 @@
     }
   }
   function initLifyCycle(Vue) {
+    Vue.prototype.$nextTick = nextTick;
     Vue.prototype._update = function (vnode) {
       var vm = this;
       var el = vm.$el;

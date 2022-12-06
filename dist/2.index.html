@@ -8,7 +8,7 @@
 </head>
 <body>
   <div id="app" style="color:red;font-size:16px">
-    <div>{{ name }} vvv {{ age }} ccc</div>
+    <div id="name">{{ name }} vvv {{ age }} ccc</div>
     <div>{{ age }}</div>
   </div>
 
@@ -31,6 +31,10 @@
       vm.name = 'owen2'
       vm.name = 'owen3'
       vm.name = 'owen4ijdasoijdao'
+
+      vm.$nextTick(() => {
+        console.log(document.querySelector('#name'))
+      })
     })
   </script>
 </body>

@@ -1,4 +1,4 @@
-import { Watcher } from './observe/watcher'
+import { nextTick, Watcher } from './observe/watcher'
 import { createElementVNode, createTextVNode } from './vdom/index'
 
 function patchProps(el, props) {
@@ -46,6 +46,8 @@ function patch(oldVNode, vnode) {
 }
 
 export function initLifyCycle(Vue) {
+  Vue.prototype.$nextTick = nextTick
+
   Vue.prototype._update = function (vnode) {
     const vm = this
     const el = vm.$el
