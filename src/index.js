@@ -1,3 +1,4 @@
+import { initGlobalApi } from "./global-api";
 import { initMixin } from "./init";
 import { initLifyCycle } from "./lifecycle";
 
@@ -7,5 +8,6 @@ function Vue(options) {
 
 initMixin(Vue);
 initLifyCycle(Vue)
+initGlobalApi(Vue)
 
 export default Vue;

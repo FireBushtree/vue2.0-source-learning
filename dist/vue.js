@@ -4,6 +4,48 @@
   (global = typeof globalThis !== 'undefined' ? globalThis : global || self, global.Vue = factory());
 })(this, (function () { 'use strict';
 
+  var starts = {};
+  var LIFE_CYCLE_LIST = ["beforeCreat", "created"];
+  LIFE_CYCLE_LIST.forEach(function (hook) {
+    starts[hook] = function (p, c) {
+      if (c) {
+        if (p) {
+          return p.concat(c);
+        } else {
+          return [c];
+        }
+      } else {
+        return p;
+      }
+    };
+  });
+  function mergeOptions(parent, child) {
+    var options = {};
+    for (var key in parent) {
+      mergeKey(key);
+    }
+    for (var _key in child) {
+      if (!options.hasOwnProperty(_key)) {
+        mergeKey(_key);
+      }
+    }
+    function mergeKey(key) {
+      if (starts[key]) {
+        options[key] = starts[key](parent[key], child[key]);
+      } else {
+        options[key] = child[key] || parent[key];
+      }
+    }
+    return options;
+  }
+
+  function initGlobalApi(Vue) {
+    Vue.options = {};
+    Vue.mixin = function (mixin) {
+      this.options = mergeOptions(this.options, mixin);
+    };
+  }
+
   function _typeof(obj) {
     "@babel/helpers - typeof";
 
@@ -479,6 +521,14 @@
     };
     new Watcher(vm, updateComponent, true);
   }
+  function callhook(vm, hook) {
+    var handlers = vm.$options[hook];
+    if (handlers) {
+      handlers.forEach(function (item) {
+        return item.call(vm);
+      });
+    }
+  }
 
   var oldArrayProto = Array.prototype;
   var newArrayProto = Object.create(oldArrayProto);
@@ -602,8 +652,10 @@
   function initMixin(Vue) {
     Vue.prototype._init = function (options) {
       var vm = this;
-      vm.$options = options;
+      vm.$options = mergeOptions(this.constructor.options, options);
+      callhook(vm, 'beforeCreate');
       initState(vm);
+      callhook(vm, 'created');
       if (options.el) {
         vm.$mount(options.el);
       }
@@ -631,6 +683,7 @@
   }
   initMixin(Vue);
   initLifyCycle(Vue);
+  initGlobalApi(Vue);
 
   return Vue;
 

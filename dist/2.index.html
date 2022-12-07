@@ -14,6 +14,18 @@
 
   <script src="./vue.js"></script>
   <script>
+    Vue.mixin({
+      created() {
+        console.log(123)
+      }
+    })
+
+    Vue.mixin({
+      created() {
+        console.log(222)
+      }
+    })
+
     const vm = new Vue({
       data() {
         return {
@@ -21,21 +33,13 @@
           age: 26
         }
       },
+      created() {
+        console.log('created')
+      },
       el: '#app'
     })
 
     window.vm = vm
-
-    setTimeout(() => {
-      vm.name = 'owen1'
-      vm.name = 'owen2'
-      vm.name = 'owen3'
-      vm.name = 'owen4ijdasoijdao'
-
-      vm.$nextTick(() => {
-        console.log(document.querySelector('#name'))
-      })
-    })
   </script>
 </body>
 </html>

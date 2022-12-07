@@ -79,3 +79,11 @@ export function mountComponent(vm, el) {
 
   new Watcher(vm, updateComponent, true)
 }
+
+export function callhook(vm, hook) {
+  const handlers = vm.$options[hook]
+
+  if (handlers) {
+    handlers.forEach(item => item.call(vm))
+  }
+}

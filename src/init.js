@@ -1,13 +1,16 @@
 import { compileToFunction } from "./compiler/index";
-import { mountComponent } from "./lifecycle";
+import { callhook, mountComponent } from "./lifecycle";
 import { initState } from "./state";
+import { mergeOptions } from "./utils";
 
 export function initMixin(Vue) {
   Vue.prototype._init = function (options) {
     const vm = this
-    vm.$options = options
+    vm.$options = mergeOptions(this.constructor.options, options)
 
+    callhook(vm, 'beforeCreate')
     initState(vm)
+    callhook(vm, 'created')
 
     if (options.el) {
       vm.$mount(options.el)
