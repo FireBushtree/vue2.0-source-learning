@@ -8,9 +8,7 @@
 </head>
 <body>
   <div id="app" style="color:red;font-size:16px">
-    <div id="name">{{ name }} vvv {{ age }} ccc</div>
-    <div>{{ age }}</div>
-    <div>{{ arr }}</div>
+    <div>{{ info }}</div>
   </div>
 
   <script src="./vue.js"></script>
@@ -23,11 +21,16 @@
           arr: [[100],2,3]
         }
       },
+      computed: {
+        info() {
+          return this.name + this.age
+        }
+      },
       el: '#app'
     })
 
     window.vm = vm
-    vm.arr[0].push(200)
+    vm.name = 'test'
   </script>
 </body>
 </html>

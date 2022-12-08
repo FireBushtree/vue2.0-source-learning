@@ -1,16 +1,18 @@
-import { Dep } from "./dep"
+import { popTarget, pushTarget } from "./dep"
 
 let id = 0
 
 export class Watcher {
-  constructor(vm, callback, isRenderWatcher) {
+  constructor(vm, callback, options) {
     this.id = id ++
-    this.isRenderWatcher = isRenderWatcher
+    this.lazy = options.lazy
+    this.dirty = this.lazy
+    // this.isRenderWatcher = isRenderWatcher
     this.getter = callback
     this.deps = []
     this.depSet = new Set()
 
-    this.get()
+    this.lazy ? null : this.get()
   }
 
   update() {
@@ -28,9 +30,9 @@ export class Watcher {
   }
 
   get() {
-    Dep.target = this
+    pushTarget(this)
     this.getter()
-    Dep.target = null
+    popTarget()
   }
 
   run() {

@@ -346,17 +346,28 @@
     return Dep;
   }();
   Dep.target = null;
+  var stack = [];
+  function pushTarget(watcher) {
+    stack.push(watcher);
+    Dep.target = watcher;
+  }
+  function popTarget() {
+    stack.pop();
+    Dep.target = stack[stack.length - 1];
+  }
 
   var id = 0;
   var Watcher = /*#__PURE__*/function () {
-    function Watcher(vm, callback, isRenderWatcher) {
+    function Watcher(vm, callback, options) {
       _classCallCheck(this, Watcher);
       this.id = id++;
-      this.isRenderWatcher = isRenderWatcher;
+      this.lazy = options.lazy;
+      this.dirty = this.lazy;
+      // this.isRenderWatcher = isRenderWatcher
       this.getter = callback;
       this.deps = [];
       this.depSet = new Set();
-      this.get();
+      this.lazy ? null : this.get();
     }
     _createClass(Watcher, [{
       key: "update",
@@ -376,9 +387,9 @@
     }, {
       key: "get",
       value: function get() {
-        Dep.target = this;
+        pushTarget(this);
         this.getter();
-        Dep.target = null;
+        popTarget();
       }
     }, {
       key: "run",
@@ -657,6 +668,9 @@
     if (options.data) {
       initData(vm);
     }
+    if (options.computed) {
+      initComputed(vm);
+    }
   }
   function proxy(vm, target, key) {
     Object.defineProperty(vm, key, {
@@ -678,6 +692,29 @@
     for (var key in data) {
       proxy(vm, '_data', key);
     }
+  }
+  function initComputed(vm) {
+    var computed = vm.$options.computed;
+    var watchers = {};
+    for (var key in computed) {
+      var userDef = computed[key];
+      var fn = typeof userDef === 'function' ? userDef : userDef.get;
+      watchers[key] = new Watcher(vm, fn, {
+        lazy: true
+      });
+      defineComputed(vm, key, userDef);
+    }
+  }
+  function createComputedGetter(fn) {
+    return function () {};
+  }
+  function defineComputed(target, key, userDef) {
+    typeof userDef === 'function' ? userDef : userDef.get;
+    var setter = userDef.set || function () {};
+    Object.defineProperty(target, key, {
+      get: createComputedGetter(),
+      set: setter
+    });
   }
 
   function initMixin(Vue) {
