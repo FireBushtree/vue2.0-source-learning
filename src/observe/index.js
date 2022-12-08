@@ -3,7 +3,8 @@ import { Dep } from './dep'
 
 class Observer {
   constructor(data) {
-    data.__ob__ = this
+    this.dep = new Dep()
+
     Object.defineProperty(data, '__ob__', {
       value: this,
       enumerable: false,
@@ -29,8 +30,19 @@ class Observer {
   }
 }
 
+function depentArray(val) {
+  for (let i = 0; i < val.length; i++) {
+    const current = val[i]
+    current.__ob__ && current.__ob__.dep.depend()
+
+    if (Array.isArray(current)) {
+      depentArray(current)
+    }
+  }
+}
+
 function defineReactive(data, key, val) {
-  observe(val)
+  const childOb = observe(val)
 
   // every reactive data has a dep
   const dep = new Dep()
@@ -41,6 +53,12 @@ function defineReactive(data, key, val) {
     get() {
       if (Dep.target) {
         dep.depend()
+
+        childOb && childOb.dep.depend()
+
+        if(Array.isArray(val)) {
+          depentArray(val)
+        }
       }
 
       return val

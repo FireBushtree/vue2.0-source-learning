@@ -30,6 +30,7 @@ methods.forEach(item => {
       ob.observeArray(instered)
     }
 
+    ob.dep.notify()
     return result
   }
 })
