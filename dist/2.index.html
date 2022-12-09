@@ -18,19 +18,25 @@
         return {
           name: 'owen',
           age: 26,
+          hobby: 'code',
           arr: [[100],2,3]
         }
       },
       computed: {
+        testHobby() {
+          return this.hobby
+        },
+
         info() {
-          return this.name + this.age
+          console.log('run')
+          return this.name + this.age + this.testHobby
         }
       },
       el: '#app'
     })
 
     window.vm = vm
-    vm.name = 'test'
+    // vm.name = 'test'
   </script>
 </body>
 </html>

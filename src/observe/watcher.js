@@ -8,15 +8,28 @@ export class Watcher {
     this.lazy = options.lazy
     this.dirty = this.lazy
     // this.isRenderWatcher = isRenderWatcher
+    this.vm = vm
     this.getter = callback
     this.deps = []
     this.depSet = new Set()
+    this.value = undefined
 
     this.lazy ? null : this.get()
   }
 
   update() {
-    queueWatcher(this)
+    if (this.lazy) {
+      this.dirty = true
+    } else {
+      queueWatcher(this)
+    }
+  }
+
+  depend() {
+    let i = this.deps.length
+    while(i--) {
+      this.deps[i].depend()
+    }
   }
 
   addDep(dep) {
@@ -29,10 +42,17 @@ export class Watcher {
     dep.addSub(this)
   }
 
+  evaluate() {
+    this.value = this.get()
+    this.dirty = false
+  }
+
   get() {
     pushTarget(this)
-    this.getter()
+    const value = this.getter.call(this.vm)
     popTarget()
+
+    return value
   }
 
   run() {

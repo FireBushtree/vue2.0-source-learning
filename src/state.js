@@ -1,3 +1,4 @@
+import { Dep } from "./observe/dep"
 import observe from "./observe/index"
 import { Watcher } from "./observe/watcher"
 
@@ -43,7 +44,7 @@ function initData(vm) {
 
 function initComputed(vm) {
   const { computed } = vm.$options
-  const watchers = {}
+  const watchers = vm._watcherList = {}
   for (let key in computed) {
     const userDef = computed[key]
     const fn = typeof userDef === 'function' ? userDef : userDef.get
@@ -52,15 +53,26 @@ function initComputed(vm) {
   }
 }
 
-function createComputedGetter(fn) {
-  return function() {}
+function createComputedGetter(key) {
+  return function() {
+    const watcher = this._watcherList[key]
+
+    if (watcher.dirty) {
+      watcher.evaluate()
+    }
+
+    if (Dep.target) {
+      watcher.depend()
+    }
+
+    return watcher.value
+  }
 }
 
 function defineComputed(target, key, userDef) {
-  const getter = typeof userDef === 'function' ? userDef : userDef.get
   const setter = userDef.set || (() => {})
   Object.defineProperty(target, key, {
-    get: createComputedGetter(getter),
+    get: createComputedGetter(key),
     set: setter
   })
 }

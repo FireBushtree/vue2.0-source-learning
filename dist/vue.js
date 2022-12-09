@@ -364,15 +364,29 @@
       this.lazy = options.lazy;
       this.dirty = this.lazy;
       // this.isRenderWatcher = isRenderWatcher
+      this.vm = vm;
       this.getter = callback;
       this.deps = [];
       this.depSet = new Set();
+      this.value = undefined;
       this.lazy ? null : this.get();
     }
     _createClass(Watcher, [{
       key: "update",
       value: function update() {
-        queueWatcher(this);
+        if (this.lazy) {
+          this.dirty = true;
+        } else {
+          queueWatcher(this);
+        }
+      }
+    }, {
+      key: "depend",
+      value: function depend() {
+        var i = this.deps.length;
+        while (i--) {
+          this.deps[i].depend();
+        }
       }
     }, {
       key: "addDep",
@@ -385,11 +399,18 @@
         dep.addSub(this);
       }
     }, {
+      key: "evaluate",
+      value: function evaluate() {
+        this.value = this.get();
+        this.dirty = false;
+      }
+    }, {
       key: "get",
       value: function get() {
         pushTarget(this);
-        this.getter();
+        var value = this.getter.call(this.vm);
         popTarget();
+        return value;
       }
     }, {
       key: "run",
@@ -695,7 +716,7 @@
   }
   function initComputed(vm) {
     var computed = vm.$options.computed;
-    var watchers = {};
+    var watchers = vm._watcherList = {};
     for (var key in computed) {
       var userDef = computed[key];
       var fn = typeof userDef === 'function' ? userDef : userDef.get;
@@ -705,14 +726,22 @@
       defineComputed(vm, key, userDef);
     }
   }
-  function createComputedGetter(fn) {
-    return function () {};
+  function createComputedGetter(key) {
+    return function () {
+      var watcher = this._watcherList[key];
+      if (watcher.dirty) {
+        watcher.evaluate();
+      }
+      if (Dep.target) {
+        watcher.depend();
+      }
+      return watcher.value;
+    };
   }
   function defineComputed(target, key, userDef) {
-    typeof userDef === 'function' ? userDef : userDef.get;
     var setter = userDef.set || function () {};
     Object.defineProperty(target, key, {
-      get: createComputedGetter(),
+      get: createComputedGetter(key),
       set: setter
     });
   }
