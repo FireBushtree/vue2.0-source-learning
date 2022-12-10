@@ -42,6 +42,25 @@ function initData(vm) {
   }
 }
 
+function initWatch(vm) {
+  const watch = vm.$options.watch
+  for (let key in watch) {
+    const handler = watch[key]
+
+    if (Array.isArray(handler)) {
+      for (let i = 0; i < handler.length; i++) {
+        createWatcher(vm, key, handler[i])
+      }
+    } else {
+      createWatcher(vm, key, handler)
+    }
+  }
+}
+
+function createWatcher(vm, key, handler) {
+  vm.$watch(key, handler)
+}
+
 function initComputed(vm) {
   const { computed } = vm.$options
   const watchers = vm._watcherList = {}

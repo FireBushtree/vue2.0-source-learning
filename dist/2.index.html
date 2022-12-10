@@ -28,7 +28,6 @@
         },
 
         info() {
-          console.log('run')
           return this.name + this.age + this.testHobby
         }
       },
@@ -36,7 +35,10 @@
     })
 
     window.vm = vm
-    // vm.name = 'test'
+    vm.$watch('name', function(newValue, oldValue) {
+      console.log(newValue)
+    })
+    vm.name = 'test'
   </script>
 </body>
 </html>

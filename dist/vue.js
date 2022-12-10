@@ -4,48 +4,6 @@
   (global = typeof globalThis !== 'undefined' ? globalThis : global || self, global.Vue = factory());
 })(this, (function () { 'use strict';
 
-  var starts = {};
-  var LIFE_CYCLE_LIST = ["beforeCreat", "created"];
-  LIFE_CYCLE_LIST.forEach(function (hook) {
-    starts[hook] = function (p, c) {
-      if (c) {
-        if (p) {
-          return p.concat(c);
-        } else {
-          return [c];
-        }
-      } else {
-        return p;
-      }
-    };
-  });
-  function mergeOptions(parent, child) {
-    var options = {};
-    for (var key in parent) {
-      mergeKey(key);
-    }
-    for (var _key in child) {
-      if (!options.hasOwnProperty(_key)) {
-        mergeKey(_key);
-      }
-    }
-    function mergeKey(key) {
-      if (starts[key]) {
-        options[key] = starts[key](parent[key], child[key]);
-      } else {
-        options[key] = child[key] || parent[key];
-      }
-    }
-    return options;
-  }
-
-  function initGlobalApi(Vue) {
-    Vue.options = {};
-    Vue.mixin = function (mixin) {
-      this.options = mergeOptions(this.options, mixin);
-    };
-  }
-
   function _iterableToArrayLimit(arr, i) {
     var _i = null == arr ? null : "undefined" != typeof Symbol && arr[Symbol.iterator] || arr["@@iterator"];
     if (null != _i) {
@@ -151,6 +109,223 @@
   function _toPropertyKey(arg) {
     var key = _toPrimitive(arg, "string");
     return typeof key === "symbol" ? key : String(key);
+  }
+
+  var id$1 = 0;
+  var Dep = /*#__PURE__*/function () {
+    function Dep() {
+      _classCallCheck(this, Dep);
+      this.id = id$1++;
+      this.subs = []; // save watcher
+    }
+    _createClass(Dep, [{
+      key: "depend",
+      value: function depend() {
+        Dep.target.addDep(this);
+      }
+    }, {
+      key: "addSub",
+      value: function addSub(watcher) {
+        this.subs.push(watcher);
+      }
+    }, {
+      key: "notify",
+      value: function notify() {
+        this.subs.forEach(function (item) {
+          return item.update();
+        });
+      }
+    }]);
+    return Dep;
+  }();
+  Dep.target = null;
+  var stack = [];
+  function pushTarget(watcher) {
+    stack.push(watcher);
+    Dep.target = watcher;
+  }
+  function popTarget() {
+    stack.pop();
+    Dep.target = stack[stack.length - 1];
+  }
+
+  var id = 0;
+  var Watcher = /*#__PURE__*/function () {
+    function Watcher(vm, expOrFn, options, cb) {
+      _classCallCheck(this, Watcher);
+      this.id = id++;
+      this.lazy = options.lazy;
+      this.dirty = this.lazy;
+      // this.isRenderWatcher = isRenderWatcher
+
+      if (typeof expOrFn === 'string') {
+        this.getter = function () {
+          return vm[expOrFn];
+        };
+      } else {
+        this.getter = expOrFn;
+      }
+      this.vm = vm;
+      this.deps = [];
+      this.depSet = new Set();
+      this.cb = cb;
+      this.value = this.lazy ? null : this.get();
+      this.user = options.user;
+    }
+    _createClass(Watcher, [{
+      key: "update",
+      value: function update() {
+        if (this.lazy) {
+          this.dirty = true;
+        } else {
+          queueWatcher(this);
+        }
+      }
+    }, {
+      key: "depend",
+      value: function depend() {
+        var i = this.deps.length;
+        while (i--) {
+          this.deps[i].depend();
+        }
+      }
+    }, {
+      key: "addDep",
+      value: function addDep(dep) {
+        if (this.depSet.has(dep.id)) {
+          return;
+        }
+        this.deps.push(dep);
+        this.depSet.add(dep.id);
+        dep.addSub(this);
+      }
+    }, {
+      key: "evaluate",
+      value: function evaluate() {
+        this.value = this.get();
+        this.dirty = false;
+      }
+    }, {
+      key: "get",
+      value: function get() {
+        pushTarget(this);
+        var value = this.getter.call(this.vm);
+        popTarget();
+        return value;
+      }
+    }, {
+      key: "run",
+      value: function run() {
+        var oldValue = this.value;
+        var newValue = this.get();
+        if (this.user) {
+          this.cb.call(this.vm, newValue, oldValue);
+        }
+      }
+    }]);
+    return Watcher;
+  }();
+  var watcherQueue = [];
+  var has = {};
+  var pending = false;
+  function flushWatcherQueue() {
+    var copyedQueue = _toConsumableArray(watcherQueue);
+    watcherQueue = [];
+    has = {};
+    pending = false;
+    copyedQueue.forEach(function (item) {
+      item.run();
+    });
+  }
+  function queueWatcher(watcher) {
+    var id = watcher.id;
+    if (has[id]) {
+      return;
+    }
+    watcherQueue.push(watcher);
+    has[id] = watcher;
+    if (!pending) {
+      pending = true;
+      nextTick(flushWatcherQueue);
+    }
+  }
+  var callbackList = [];
+  var waiting = false;
+  function flushCallbackList() {
+    var copyedCallbackList = _toConsumableArray(callbackList);
+    callbackList = [];
+    waiting = false;
+    copyedCallbackList.forEach(function (item) {
+      return item();
+    });
+  }
+  function nextTick(callback) {
+    callbackList.push(callback);
+    if (!waiting) {
+      timerFunc();
+      waiting = true;
+    }
+  }
+  var timerFunc;
+  if (Promise) {
+    timerFunc = function timerFunc() {
+      Promise.resolve().then(flushCallbackList);
+    };
+  } else if (MutationObserver) {
+    var observer = new MutationObserver(flushCallbackList);
+    var textNode = document.createTextNode(1);
+    observer.observe(textNode, {
+      characterData: true
+    });
+    timerFunc = function timerFunc() {
+      textNode.textContent = 2;
+    };
+  } else if (setTimeout) {
+    timerFunc = function timerFunc() {
+      setTimeout(flushCallbackList);
+    };
+  }
+
+  var starts = {};
+  var LIFE_CYCLE_LIST = ["beforeCreat", "created"];
+  LIFE_CYCLE_LIST.forEach(function (hook) {
+    starts[hook] = function (p, c) {
+      if (c) {
+        if (p) {
+          return p.concat(c);
+        } else {
+          return [c];
+        }
+      } else {
+        return p;
+      }
+    };
+  });
+  function mergeOptions(parent, child) {
+    var options = {};
+    for (var key in parent) {
+      mergeKey(key);
+    }
+    for (var _key in child) {
+      if (!options.hasOwnProperty(_key)) {
+        mergeKey(_key);
+      }
+    }
+    function mergeKey(key) {
+      if (starts[key]) {
+        options[key] = starts[key](parent[key], child[key]);
+      } else {
+        options[key] = child[key] || parent[key];
+      }
+    }
+    return options;
+  }
+
+  function initGlobalApi(Vue) {
+    Vue.options = {};
+    Vue.mixin = function (mixin) {
+      this.options = mergeOptions(this.options, mixin);
+    };
   }
 
   var ncname = "[a-zA-Z_][\\-\\.0-9_a-zA-Z]*";
@@ -316,169 +491,6 @@
     code = "with(this) {\n    return ".concat(code, "\n  }");
     var render = new Function(code);
     return render;
-  }
-
-  var id$1 = 0;
-  var Dep = /*#__PURE__*/function () {
-    function Dep() {
-      _classCallCheck(this, Dep);
-      this.id = id$1++;
-      this.subs = []; // save watcher
-    }
-    _createClass(Dep, [{
-      key: "depend",
-      value: function depend() {
-        Dep.target.addDep(this);
-      }
-    }, {
-      key: "addSub",
-      value: function addSub(watcher) {
-        this.subs.push(watcher);
-      }
-    }, {
-      key: "notify",
-      value: function notify() {
-        this.subs.forEach(function (item) {
-          return item.update();
-        });
-      }
-    }]);
-    return Dep;
-  }();
-  Dep.target = null;
-  var stack = [];
-  function pushTarget(watcher) {
-    stack.push(watcher);
-    Dep.target = watcher;
-  }
-  function popTarget() {
-    stack.pop();
-    Dep.target = stack[stack.length - 1];
-  }
-
-  var id = 0;
-  var Watcher = /*#__PURE__*/function () {
-    function Watcher(vm, callback, options) {
-      _classCallCheck(this, Watcher);
-      this.id = id++;
-      this.lazy = options.lazy;
-      this.dirty = this.lazy;
-      // this.isRenderWatcher = isRenderWatcher
-      this.vm = vm;
-      this.getter = callback;
-      this.deps = [];
-      this.depSet = new Set();
-      this.value = undefined;
-      this.lazy ? null : this.get();
-    }
-    _createClass(Watcher, [{
-      key: "update",
-      value: function update() {
-        if (this.lazy) {
-          this.dirty = true;
-        } else {
-          queueWatcher(this);
-        }
-      }
-    }, {
-      key: "depend",
-      value: function depend() {
-        var i = this.deps.length;
-        while (i--) {
-          this.deps[i].depend();
-        }
-      }
-    }, {
-      key: "addDep",
-      value: function addDep(dep) {
-        if (this.depSet.has(dep.id)) {
-          return;
-        }
-        this.deps.push(dep);
-        this.depSet.add(dep.id);
-        dep.addSub(this);
-      }
-    }, {
-      key: "evaluate",
-      value: function evaluate() {
-        this.value = this.get();
-        this.dirty = false;
-      }
-    }, {
-      key: "get",
-      value: function get() {
-        pushTarget(this);
-        var value = this.getter.call(this.vm);
-        popTarget();
-        return value;
-      }
-    }, {
-      key: "run",
-      value: function run() {
-        this.get();
-      }
-    }]);
-    return Watcher;
-  }();
-  var watcherQueue = [];
-  var has = {};
-  var pending = false;
-  function flushWatcherQueue() {
-    var copyedQueue = _toConsumableArray(watcherQueue);
-    watcherQueue = [];
-    has = {};
-    pending = false;
-    copyedQueue.forEach(function (item) {
-      item.run();
-    });
-  }
-  function queueWatcher(watcher) {
-    var id = watcher.id;
-    if (has[id]) {
-      return;
-    }
-    watcherQueue.push(watcher);
-    has[id] = watcher;
-    if (!pending) {
-      pending = true;
-      nextTick(flushWatcherQueue);
-    }
-  }
-  var callbackList = [];
-  var waiting = false;
-  function flushCallbackList() {
-    var copyedCallbackList = _toConsumableArray(callbackList);
-    callbackList = [];
-    waiting = false;
-    copyedCallbackList.forEach(function (item) {
-      return item();
-    });
-  }
-  function nextTick(callback) {
-    callbackList.push(callback);
-    if (!waiting) {
-      timerFunc();
-      waiting = true;
-    }
-  }
-  var timerFunc;
-  if (Promise) {
-    timerFunc = function timerFunc() {
-      Promise.resolve().then(flushCallbackList);
-    };
-  } else if (MutationObserver) {
-    var observer = new MutationObserver(flushCallbackList);
-    var textNode = document.createTextNode(1);
-    observer.observe(textNode, {
-      characterData: true
-    });
-    timerFunc = function timerFunc() {
-      textNode.textContent = 2;
-    };
-  } else if (setTimeout) {
-    timerFunc = function timerFunc() {
-      setTimeout(flushCallbackList);
-    };
   }
 
   function createElementVNode(vm, tag, data) {
@@ -781,6 +793,11 @@
   initMixin(Vue);
   initLifyCycle(Vue);
   initGlobalApi(Vue);
+  Vue.prototype.$watch = function (expOrFn, cb, options) {
+    new Watcher(this, expOrFn, {
+      user: true
+    }, cb);
+  };
 
   return Vue;
 

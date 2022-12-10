@@ -3,18 +3,27 @@ import { popTarget, pushTarget } from "./dep"
 let id = 0
 
 export class Watcher {
-  constructor(vm, callback, options) {
+  constructor(vm, expOrFn, options, cb) {
     this.id = id ++
     this.lazy = options.lazy
     this.dirty = this.lazy
     // this.isRenderWatcher = isRenderWatcher
+
+    if (typeof expOrFn === 'string') {
+      this.getter = function() {
+        return vm[expOrFn]
+      }
+    } else {
+      this.getter = expOrFn
+    }
+
     this.vm = vm
-    this.getter = callback
     this.deps = []
     this.depSet = new Set()
-    this.value = undefined
+    this.cb = cb
 
-    this.lazy ? null : this.get()
+    this.value = this.lazy ? null : this.get()
+    this.user = options.user
   }
 
   update() {
@@ -56,7 +65,11 @@ export class Watcher {
   }
 
   run() {
-    this.get()
+    const oldValue = this.value
+    const newValue = this.get()
+    if (this.user) {
+      this.cb.call(this.vm, newValue, oldValue)
+    }
   }
 }
 
