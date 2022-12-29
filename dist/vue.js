@@ -4,6 +4,48 @@
   (global = typeof globalThis !== 'undefined' ? globalThis : global || self, global.Vue = factory());
 })(this, (function () { 'use strict';
 
+  var starts = {};
+  var LIFE_CYCLE_LIST = ["beforeCreat", "created"];
+  LIFE_CYCLE_LIST.forEach(function (hook) {
+    starts[hook] = function (p, c) {
+      if (c) {
+        if (p) {
+          return p.concat(c);
+        } else {
+          return [c];
+        }
+      } else {
+        return p;
+      }
+    };
+  });
+  function mergeOptions(parent, child) {
+    var options = {};
+    for (var key in parent) {
+      mergeKey(key);
+    }
+    for (var _key in child) {
+      if (!options.hasOwnProperty(_key)) {
+        mergeKey(_key);
+      }
+    }
+    function mergeKey(key) {
+      if (starts[key]) {
+        options[key] = starts[key](parent[key], child[key]);
+      } else {
+        options[key] = child[key] || parent[key];
+      }
+    }
+    return options;
+  }
+
+  function initGlobalApi(Vue) {
+    Vue.options = {};
+    Vue.mixin = function (mixin) {
+      this.options = mergeOptions(this.options, mixin);
+    };
+  }
+
   function _iterableToArrayLimit(arr, i) {
     var _i = null == arr ? null : "undefined" != typeof Symbol && arr[Symbol.iterator] || arr["@@iterator"];
     if (null != _i) {
@@ -109,6 +151,171 @@
   function _toPropertyKey(arg) {
     var key = _toPrimitive(arg, "string");
     return typeof key === "symbol" ? key : String(key);
+  }
+
+  var ncname = "[a-zA-Z_][\\-\\.0-9_a-zA-Z]*";
+  var qnameCapture = "((?:".concat(ncname, "\\:)?").concat(ncname, ")");
+  var startTagOpen = new RegExp("^<".concat(qnameCapture));
+  var startTagClose = /^\s*(\/?)>/;
+  var endTag = new RegExp("^<\\/".concat(qnameCapture, "[^>]*>"));
+  var attribute = /^\s*([^\s"'<>\/=]+)(?:\s*(=)\s*(?:"([^"]*)"+|'([^']*)'+|([^\s"'=<>`]+)))?/;
+  var defaultTagRE = /\{\{((?:.|\r?\n)+?)\}\}/g;
+  var ELEMENT_TYPE = 1;
+  var TEXT_TYPE = 3;
+  function parseHTML(html) {
+    var stack = [];
+    var currentTag = undefined;
+    var root = undefined;
+    function createASTElement(tag, attrs) {
+      return {
+        tag: tag,
+        type: ELEMENT_TYPE,
+        children: [],
+        attrs: attrs,
+        parent: null
+      };
+    }
+    function start(tagName, attrs) {
+      var ast = createASTElement(tagName, attrs);
+      if (!root) {
+        root = ast;
+      } else if (currentTag) {
+        currentTag.children.push(ast);
+        ast.parent = currentTag;
+      }
+      currentTag = ast;
+      stack.push(ast);
+    }
+    function chars(text) {
+      text = text.replace(/\s/g, '');
+      text && currentTag.children.push({
+        type: TEXT_TYPE,
+        text: text,
+        parent: currentTag
+      });
+    }
+    function end(tagName) {
+      stack.pop();
+      currentTag = stack[stack.length - 1];
+    }
+    var _loop = function _loop() {
+      var textEnd = html.indexOf('<');
+      function advance(n) {
+        html = html.substring(n);
+      }
+      function parseStartTag() {
+        var start = html.match(startTagOpen);
+        if (start) {
+          var match = {
+            tagName: start[1],
+            attrs: []
+          };
+          advance(start[0].length);
+          var attr;
+          var _end;
+          while (!(_end = html.match(startTagClose)) && (attr = html.match(attribute))) {
+            advance(attr[0].length);
+            match.attrs.push({
+              name: attr[1],
+              value: attr[3] || attr[4] || attr[5]
+            });
+          }
+          if (_end) {
+            advance(_end[0].length);
+          }
+          return match;
+        }
+        return false;
+      }
+      if (textEnd === 0) {
+        var startTagMatch = parseStartTag();
+        if (startTagMatch) {
+          start(startTagMatch.tagName, startTagMatch.attrs);
+          return "continue";
+        }
+        var endTagName = html.match(endTag);
+        if (endTagName) {
+          end(endTagName[1]);
+          advance(endTagName[0].length);
+          return "continue";
+        }
+      }
+      if (textEnd > 0) {
+        var text = html.substring(0, textEnd);
+        if (text) {
+          chars(text);
+          advance(text.length);
+        }
+      }
+    };
+    while (html) {
+      var _ret = _loop();
+      if (_ret === "continue") continue;
+    }
+    return root;
+  }
+
+  function genProps(attrs) {
+    var str = '';
+    attrs.forEach(function (attr) {
+      if (attr.name === 'style') {
+        var valArray = attr.value.split(';');
+        attr.value = {};
+        valArray.forEach(function (item) {
+          var _item$split = item.split(':'),
+            _item$split2 = _slicedToArray(_item$split, 2),
+            key = _item$split2[0],
+            value = _item$split2[1];
+          attr.value[key] = value;
+        });
+      }
+      str += "".concat(attr.name, ":").concat(JSON.stringify(attr.value), ",");
+    });
+    return "{".concat(str.slice(0, -1), "}");
+  }
+  function gen(node) {
+    if (node.type === ELEMENT_TYPE) {
+      return codegen(node);
+    } else if (node.type === TEXT_TYPE) {
+      if (!defaultTagRE.test(node.text)) {
+        return "_v(".concat(JSON.stringify(node.text), ")");
+      } else {
+        var tokens = [];
+        var match;
+        var lastIndex = 0;
+        defaultTagRE.lastIndex = 0;
+        while (match = defaultTagRE.exec(node.text)) {
+          if (match.index > lastIndex) {
+            var middleText = node.text.slice(lastIndex, match.index);
+            tokens.push(JSON.stringify(middleText));
+          }
+          tokens.push("_s(".concat(match[1], ")"));
+          lastIndex = match.index + match[0].length;
+        }
+        if (lastIndex < node.text.length - 1) {
+          tokens.push(JSON.stringify(node.text.slice(lastIndex)));
+        }
+        return "_v(".concat(tokens.join('+'), ")");
+      }
+    }
+  }
+  function genChildren(children) {
+    if (children) {
+      return children.map(function (item) {
+        return gen(item);
+      }).join(',');
+    }
+  }
+  function codegen(ast) {
+    var code = "_c('".concat(ast.tag, "', ").concat(ast.attrs.length > 0 ? genProps(ast.attrs) : 'null', " ").concat(ast.children.length ? ",".concat(genChildren(ast.children)) : '', ")");
+    return code;
+  }
+  function compileToFunction(template) {
+    var ast = parseHTML(template);
+    var code = codegen(ast);
+    code = "with(this) {\n    return ".concat(code, "\n  }");
+    var render = new Function(code);
+    return render;
   }
 
   var id$1 = 0;
@@ -286,213 +493,6 @@
     };
   }
 
-  var starts = {};
-  var LIFE_CYCLE_LIST = ["beforeCreat", "created"];
-  LIFE_CYCLE_LIST.forEach(function (hook) {
-    starts[hook] = function (p, c) {
-      if (c) {
-        if (p) {
-          return p.concat(c);
-        } else {
-          return [c];
-        }
-      } else {
-        return p;
-      }
-    };
-  });
-  function mergeOptions(parent, child) {
-    var options = {};
-    for (var key in parent) {
-      mergeKey(key);
-    }
-    for (var _key in child) {
-      if (!options.hasOwnProperty(_key)) {
-        mergeKey(_key);
-      }
-    }
-    function mergeKey(key) {
-      if (starts[key]) {
-        options[key] = starts[key](parent[key], child[key]);
-      } else {
-        options[key] = child[key] || parent[key];
-      }
-    }
-    return options;
-  }
-
-  function initGlobalApi(Vue) {
-    Vue.options = {};
-    Vue.mixin = function (mixin) {
-      this.options = mergeOptions(this.options, mixin);
-    };
-  }
-
-  var ncname = "[a-zA-Z_][\\-\\.0-9_a-zA-Z]*";
-  var qnameCapture = "((?:".concat(ncname, "\\:)?").concat(ncname, ")");
-  var startTagOpen = new RegExp("^<".concat(qnameCapture));
-  var startTagClose = /^\s*(\/?)>/;
-  var endTag = new RegExp("^<\\/".concat(qnameCapture, "[^>]*>"));
-  var attribute = /^\s*([^\s"'<>\/=]+)(?:\s*(=)\s*(?:"([^"]*)"+|'([^']*)'+|([^\s"'=<>`]+)))?/;
-  var defaultTagRE = /\{\{((?:.|\r?\n)+?)\}\}/g;
-  var ELEMENT_TYPE = 1;
-  var TEXT_TYPE = 3;
-  function parseHTML(html) {
-    var stack = [];
-    var currentTag = undefined;
-    var root = undefined;
-    function createASTElement(tag, attrs) {
-      return {
-        tag: tag,
-        type: ELEMENT_TYPE,
-        children: [],
-        attrs: attrs,
-        parent: null
-      };
-    }
-    function start(tagName, attrs) {
-      var ast = createASTElement(tagName, attrs);
-      if (!root) {
-        root = ast;
-      } else if (currentTag) {
-        currentTag.children.push(ast);
-        ast.parent = currentTag;
-      }
-      currentTag = ast;
-      stack.push(ast);
-    }
-    function chars(text) {
-      text = text.replace(/\s/g, '');
-      text && currentTag.children.push({
-        type: TEXT_TYPE,
-        text: text,
-        parent: currentTag
-      });
-    }
-    function end(tagName) {
-      stack.pop();
-      currentTag = stack[stack.length - 1];
-    }
-    var _loop = function _loop() {
-      var textEnd = html.indexOf('<');
-      function advance(n) {
-        html = html.substring(n);
-      }
-      function parseStartTag() {
-        var start = html.match(startTagOpen);
-        if (start) {
-          var match = {
-            tagName: start[1],
-            attrs: []
-          };
-          advance(start[0].length);
-          var attr;
-          var _end;
-          while (!(_end = html.match(startTagClose)) && (attr = html.match(attribute))) {
-            advance(attr[0].length);
-            match.attrs.push({
-              name: attr[1],
-              value: attr[3] || attr[4] || attr[5]
-            });
-          }
-          if (_end) {
-            advance(_end[0].length);
-          }
-          return match;
-        }
-        return false;
-      }
-      if (textEnd === 0) {
-        var startTagMatch = parseStartTag();
-        if (startTagMatch) {
-          start(startTagMatch.tagName, startTagMatch.attrs);
-          return "continue";
-        }
-        var endTagName = html.match(endTag);
-        if (endTagName) {
-          end(endTagName[1]);
-          advance(endTagName[0].length);
-          return "continue";
-        }
-      }
-      if (textEnd > 0) {
-        var text = html.substring(0, textEnd);
-        if (text) {
-          chars(text);
-          advance(text.length);
-        }
-      }
-    };
-    while (html) {
-      var _ret = _loop();
-      if (_ret === "continue") continue;
-    }
-    return root;
-  }
-
-  function genProps(attrs) {
-    var str = '';
-    attrs.forEach(function (attr) {
-      if (attr.name === 'style') {
-        var valArray = attr.value.split(';');
-        attr.value = {};
-        valArray.forEach(function (item) {
-          var _item$split = item.split(':'),
-            _item$split2 = _slicedToArray(_item$split, 2),
-            key = _item$split2[0],
-            value = _item$split2[1];
-          attr.value[key] = value;
-        });
-      }
-      str += "".concat(attr.name, ":").concat(JSON.stringify(attr.value), ",");
-    });
-    return "{".concat(str.slice(0, -1), "}");
-  }
-  function gen(node) {
-    if (node.type === ELEMENT_TYPE) {
-      return codegen(node);
-    } else if (node.type === TEXT_TYPE) {
-      if (!defaultTagRE.test(node.text)) {
-        return "_v(".concat(JSON.stringify(node.text), ")");
-      } else {
-        var tokens = [];
-        var match;
-        var lastIndex = 0;
-        defaultTagRE.lastIndex = 0;
-        while (match = defaultTagRE.exec(node.text)) {
-          if (match.index > lastIndex) {
-            var middleText = node.text.slice(lastIndex, match.index);
-            tokens.push(JSON.stringify(middleText));
-          }
-          tokens.push("_s(".concat(match[1], ")"));
-          lastIndex = match.index + match[0].length;
-        }
-        if (lastIndex < node.text.length - 1) {
-          tokens.push(JSON.stringify(node.text.slice(lastIndex)));
-        }
-        return "_v(".concat(tokens.join('+'), ")");
-      }
-    }
-  }
-  function genChildren(children) {
-    if (children) {
-      return children.map(function (item) {
-        return gen(item);
-      }).join(',');
-    }
-  }
-  function codegen(ast) {
-    var code = "_c('".concat(ast.tag, "', ").concat(ast.attrs.length > 0 ? genProps(ast.attrs) : 'null', " ").concat(ast.children.length ? ",".concat(genChildren(ast.children)) : '', ")");
-    return code;
-  }
-  function compileToFunction(template) {
-    var ast = parseHTML(template);
-    var code = codegen(ast);
-    code = "with(this) {\n    return ".concat(code, "\n  }");
-    var render = new Function(code);
-    return render;
-  }
-
   function createElementVNode(vm, tag, data) {
     data = data || {};
     var key = data.key;
@@ -515,15 +515,30 @@
       text: text
     };
   }
+  function isSameVnode(vnode1, vnode2) {
+    return vnode1.tag === vnode2.tag && vnode1.key === vnode2.key;
+  }
 
-  function patchProps(el, props) {
-    for (var key in props) {
-      if (key === 'style') {
-        for (var styleName in props[key]) {
-          el.style[styleName] = props[key][styleName];
+  function patchProps(el, oldProps, props) {
+    var oldStyle = oldProps.style || {};
+    var style = props.style || {};
+    for (var key in oldStyle) {
+      if (!style[key]) {
+        el.style[key] = '';
+      }
+    }
+    for (var _key in oldProps) {
+      if (!props[_key]) {
+        el.removeAttribute(_key);
+      }
+    }
+    for (var _key2 in props) {
+      if (_key2 === 'style') {
+        for (var styleName in props[_key2]) {
+          el.style[styleName] = props[_key2][styleName];
         }
       } else {
-        el.setAttribute(key, props[key]);
+        el.setAttribute(_key2, props[_key2]);
       }
     }
   }
@@ -534,7 +549,7 @@
       text = vnode.text;
     if (typeof tag === 'string') {
       vnode.el = document.createElement(tag);
-      patchProps(vnode.el, data);
+      patchProps(vnode.el, {}, data);
       children.forEach(function (item) {
         vnode.el.appendChild(createElm(item));
       });
@@ -543,19 +558,48 @@
     }
     return vnode.el;
   }
-  function patch(oldVNode, vnode) {
-    var isRealElement = oldVNode.nodeType;
+  function patch(oldVnode, vnode) {
+    var isRealElement = oldVnode.nodeType;
     if (isRealElement) {
-      var elm = oldVNode;
+      var elm = oldVnode;
       var parentElm = elm.parentNode;
       var newElm = createElm(vnode);
       parentElm.insertBefore(newElm, elm.nextSibling);
       parentElm.removeChild(elm);
       return newElm;
+    } else {
+      patchVnode(oldVnode, vnode);
     }
   }
+  function patchVnode(oldVnode, vnode) {
+    if (!isSameVnode(oldVnode, vnode)) {
+      var _el = createElm(vnode);
+      oldVnode.el.parentNode.replaceChild(_el, oldVnode.el);
+      return _el;
+    }
+    var el = vnode.el = oldVnode.el;
+    if (!vnode.tag) {
+      if (oldVnode.text !== vnode.text) {
+        el.textContent = vnode.text;
+      }
+    }
+    patchProps(el, vnode.data, oldVnode.data);
+    var oldChildren = oldVnode.children || [];
+    var newChildren = vnode.children;
+    if (oldChildren.length > 0 && newChildren.length > 0) ; else if (newChildren.length > 0) {
+      mountChildren(el, newChildren);
+    } else if (oldChildren.length > 0) {
+      el.innerHTML = '';
+    }
+  }
+  function mountChildren(el, children) {
+    for (var i = 0; i < children.length; i++) {
+      var node = createElm(children[i]);
+      el.appendChild(node);
+    }
+  }
+
   function initLifyCycle(Vue) {
-    Vue.prototype.$nextTick = nextTick;
     Vue.prototype._update = function (vnode) {
       var vm = this;
       var el = vm.$el;
@@ -757,6 +801,14 @@
       set: setter
     });
   }
+  function initStateMixin(Vue) {
+    Vue.prototype.$nextTick = nextTick;
+    Vue.prototype.$watch = function (expOrFn, cb, options) {
+      new Watcher(this, expOrFn, {
+        user: true
+      }, cb);
+    };
+  }
 
   function initMixin(Vue) {
     Vue.prototype._init = function (options) {
@@ -793,11 +845,7 @@
   initMixin(Vue);
   initLifyCycle(Vue);
   initGlobalApi(Vue);
-  Vue.prototype.$watch = function (expOrFn, cb, options) {
-    new Watcher(this, expOrFn, {
-      user: true
-    }, cb);
-  };
+  initStateMixin(Vue);
 
   return Vue;
 
