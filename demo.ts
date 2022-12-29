@@ -1,6 +1,6 @@
 import Vue from "./src/instance";
 
-new Vue({
+const vm = new Vue({
   el: '#app',
   data() {
     return {
@@ -9,3 +9,5 @@ new Vue({
     }
   },
 })
+
+window.vm = vm
