@@ -1,8 +1,16 @@
 import Vue from '../instance'
+import { hasOwn } from '../util'
 import { arrayMethods } from './array'
 
 export class Observer {
-  constructor(value: any) {
+  constructor(public value: any) {
+    Object.defineProperty(value, '__ob__', {
+      value: this,
+      configurable: true,
+      enumerable: false,
+      writable: true
+    })
+
     if (Array.isArray(value)) {
       //@ts-ignore
       value.__proto__ = arrayMethods
@@ -14,7 +22,11 @@ export class Observer {
   }
 }
 
-export function observe(value: unknown) {
+export function observe(value: any) {
+  if (value && hasOwn(value, '__ob__')) {
+    return value.__ob__
+  }
+
   if (
     typeof value !== 'object' ||
     value === null ||
@@ -30,18 +42,27 @@ export function observe(value: unknown) {
 export function defineReactive(obj: object, key: string, val: any) {
   observe(val)
 
+  const property = Object.getOwnPropertyDescriptor(obj, key)
+  const getter = property && property.get
+  const setter = property && property.set
+
   Object.defineProperty(obj, key, {
     enumerable: true,
     configurable: true,
     get() {
-      return val
+      return getter ? getter.call(obj) : val
     },
     set(newVal) {
       if (val === newVal) {
         return
       }
 
-      val = newVal
+      if (setter) {
+        setter.call(obj, newVal)
+      } else {
+        val = newVal
+      }
+
       observe(val)
     }
   })
