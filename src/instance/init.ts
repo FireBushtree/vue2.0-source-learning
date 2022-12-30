@@ -1,8 +1,9 @@
+import { Component } from '@/types/component'
 import { initState } from './state'
 
-export function initMixin(Vue: any) {
+export function initMixin(Vue: typeof Component) {
   Vue.prototype._init = function () {
-    const vm = this
+    const vm: Component = this
     initState(vm)
 
     if (vm.$options.el) {
