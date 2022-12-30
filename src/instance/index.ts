@@ -6,8 +6,8 @@ interface Options {
   data?: () => object
 }
 
-function Vue(options: Options) {
-  this.$options = options
+function Vue(options?: Options) {
+  this.$options = options || {}
   this._init()
 }
 initRender(Vue)

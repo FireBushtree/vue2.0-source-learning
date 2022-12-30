@@ -1,7 +1,11 @@
-export class Observer {
-  constructor(value) {
-    if (Array.isArray(value)) {
+import Vue from '../instance'
+import { arrayMethods } from './array'
 
+export class Observer {
+  constructor(value: any) {
+    if (Array.isArray(value)) {
+      //@ts-ignore
+      value.__proto__ = arrayMethods
     } else {
       for (let key in value) {
         defineReactive(value, key, value[key])
@@ -10,11 +14,22 @@ export class Observer {
   }
 }
 
-export function observe(value) {
+export function observe(value: unknown) {
+  if (
+    typeof value !== 'object' ||
+    value === null ||
+    value instanceof (Vue as any) ||
+    Object.isFrozen(value)
+  ) {
+    return
+  }
+
   return new Observer(value)
 }
 
-export function defineReactive(obj, key, val) {
+export function defineReactive(obj: object, key: string, val: any) {
+  observe(val)
+
   Object.defineProperty(obj, key, {
     enumerable: true,
     configurable: true,
@@ -25,8 +40,9 @@ export function defineReactive(obj, key, val) {
       if (val === newVal) {
         return
       }
-      console.log(123)
+
       val = newVal
+      observe(val)
     }
   })
 }
