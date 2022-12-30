@@ -1,7 +1,7 @@
-import { initState } from "./state"
+import { initState } from './state'
 
 export function initMixin(Vue: any) {
-  Vue.prototype._init = function() {
+  Vue.prototype._init = function () {
     const vm = this
     initState(vm)
 

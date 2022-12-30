@@ -12,7 +12,7 @@ const methodList = [
 methodList.forEach(key => {
   const origin = arrayMethods[key]
 
-  arrayMethods[key] = function(...args) {
+  arrayMethods[key] = function(...args: any) {
     const result = origin.apply(this, args)
     return result
   }
