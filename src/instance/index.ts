@@ -7,6 +7,7 @@ function Vue(options?: Options) {
   this.$options = options || {}
   this._init()
 }
+
 initRender(Vue)
 initMixin(Vue)
 

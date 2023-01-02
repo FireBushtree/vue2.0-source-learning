@@ -17,3 +17,8 @@ export type ASTElement = {
   children: Array<ASTNode>
   parent: ASTElement | void
 }
+
+export type ASTTempNode = {
+  tag: string
+  attrs: ASTAttr[]
+}
