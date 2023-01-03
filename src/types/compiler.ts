@@ -1,8 +1,13 @@
-export type ASTNode = ASTElement | ASTText
+export type ASTNode = ASTElement | ASTText | ASTExpression
 
 export type ASTText = {
   type: 3
   text: string
+}
+
+export type ASTExpression = {
+  type: 2
+  expression: string
 }
 
 export type ASTAttr = {
@@ -15,7 +20,7 @@ export type ASTElement = {
   tag: string
   attrs: Array<ASTAttr>
   children: Array<ASTNode>
-  parent: ASTElement | void
+  parent?: ASTElement | void
 }
 
 export type ASTTempNode = {
