@@ -1,7 +1,7 @@
 import { Options } from '../types/component'
 import { GlobalAPI } from '../types/global-api'
 import { initMixin } from './init'
-import { initRender } from './render'
+import { initRender, renderMixin } from './render'
 
 function Vue(options?: Options) {
   this.$options = options || {}
@@ -10,5 +10,6 @@ function Vue(options?: Options) {
 
 initRender(Vue)
 initMixin(Vue)
+renderMixin(Vue)
 
 export default (Vue as unknown) as GlobalAPI

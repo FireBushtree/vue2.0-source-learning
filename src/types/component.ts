@@ -1,3 +1,4 @@
+import VNode from '@/vdom/vnode'
 import { ComponentOptions } from './options'
 
 export interface Options {
@@ -11,4 +12,5 @@ export declare class Component {
   $mount: (el: string | Element) => any
   _data: Record<string, any>
   _init: () => any
+  _render: () => VNode
 }
