@@ -9,7 +9,7 @@ const endTag = new RegExp(`^<\\/${qnameCapture}[^>]*>`)
 const attribute = /^\s*([^\s"'<>\/=]+)(?:\s*(=)\s*(?:"([^"]*)"+|'([^']*)'+|([^\s"'=<>`]+)))?/
 export const defaultTagRE = /\{\{((?:.|\r?\n)+?)\}\}/g
 
-export function parseHTML(html: string) {
+export function parseHTML(html: string): ASTElement | undefined {
   const stack: Array<ASTElement> = []
   let root: ASTElement | undefined = undefined
   let curr: ASTElement | undefined = undefined
@@ -115,7 +115,7 @@ export function parseHTML(html: string) {
       return
     }
 
-    if (match) {
+    if (match && match.expression) {
       curr.children.push({
         type: 2,
         expression: match.expression

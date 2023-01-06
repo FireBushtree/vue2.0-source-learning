@@ -4,6 +4,7 @@ export function parseText(text: string) {
   const reg = defaultTagRE
   let match
   let lastIndex = 0
+  let tokenValue = ''
   const tokens: string[] = []
   const rawTokens: any[] = []
 
@@ -11,7 +12,8 @@ export function parseText(text: string) {
     const index = match.index
 
     if (index > lastIndex) {
-      tokens.push(text.slice(lastIndex, index))
+      tokenValue = text.slice(lastIndex, index)
+      tokens.push(JSON.stringify(tokenValue))
     }
 
     const exp = match[1].trim()
@@ -19,7 +21,7 @@ export function parseText(text: string) {
     lastIndex += match[0].length
   }
 
-    return {
-    expression: tokens.join('+'),
+  return {
+    expression: tokens.join('+')
   }
 }
