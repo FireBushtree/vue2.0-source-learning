@@ -1,7 +1,7 @@
 import { toString } from "@/util";
-import { createTextNode } from "@/vdom/vnode";
+import { createTextVNode } from "@/vdom/vnode";
 
 export function installRenderHelpers(target: any) {
-  target._v = createTextNode
+  target._v = createTextVNode
   target._s = toString
 }

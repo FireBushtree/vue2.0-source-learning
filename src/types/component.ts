@@ -13,4 +13,5 @@ export declare class Component {
   _data: Record<string, any>
   _init: () => any
   _render: () => VNode
+  _c: (tag: string, data: any, children: any) => VNode
 }

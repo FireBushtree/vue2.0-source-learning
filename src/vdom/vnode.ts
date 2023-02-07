@@ -21,6 +21,6 @@ export type VNodeData = {
   attrs: { [key: string]: any }
 }
 
-export function createTextNode(val: string | number) {
+export function createTextVNode(val: string | number) {
   return new VNode(undefined, undefined, undefined, String(val))
 }
