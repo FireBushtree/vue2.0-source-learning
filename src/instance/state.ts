@@ -14,6 +14,20 @@ export function initData(vm: Component) {
   // 1. proxy data
   // 2. observe data
   observe(data)
+
+  Object.keys(data).forEach(key => {
+    let val = data[key]
+    Object.defineProperty(vm, key, {
+      configurable: true,
+      enumerable: true,
+      get() {
+        return val
+      },
+      set(newVal) {
+        val = newVal
+      }
+    })
+  })
 }
 
 export function getData(vm: Component, data: Function) {

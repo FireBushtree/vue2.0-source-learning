@@ -1,13 +1,14 @@
 export default class VNode {
   tag?: string
   data?: VNodeData
-  children?: Array<VNodeData>
+  children?: Array<VNode>
   text?: string
+  elm?: any
 
   constructor(
     tag?: string,
     data?: VNodeData,
-    children?: Array<VNodeData>,
+    children?: Array<VNode>,
     text?: string
   ) {
     this.tag = tag
