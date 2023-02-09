@@ -24,7 +24,7 @@ export function renderMixin(Vue: typeof Component) {
     const preVNode = vm._vnode
     if (!preVNode) {
       patch(vm.$el, vnode)
-      console.log(vnode)
+      document.body.appendChild(vnode.elm)
     }
 
   }
