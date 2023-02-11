@@ -1,4 +1,5 @@
 import { Component } from "@/types/component"
+import { popTarget, pushTarget } from "./dep"
 
 let id = 0
 
@@ -14,6 +15,8 @@ export default class Watcher {
   }
 
   get() {
+    pushTarget(this)
     const val = this.getter.call(this.vm, this.vm)
+    popTarget()
   }
 }
