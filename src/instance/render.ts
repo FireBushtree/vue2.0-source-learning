@@ -1,4 +1,5 @@
 import { compileToFunction } from '@/compiler'
+import Watcher from '@/observer/watcher'
 import { Component } from '@/types/component'
 import { createElement } from '@/vdom/create-element'
 import { patch } from '@/vdom/patch'
@@ -39,6 +40,11 @@ export function renderMixin(Vue: typeof Component) {
     const template = node.outerHTML
     const compiled = compileToFunction(template)
     this.$options.render = new Function(compiled.render)
-    this._update(this._render())
+
+    const updateComponent = () => {
+      this._update(this._render())
+    }
+
+    new Watcher(this, updateComponent, true)
   }
 }

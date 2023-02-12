@@ -4,9 +4,15 @@ let id = 0
 export default class Dep {
   static target: null | Watcher
   id: number
+  subs: Array<Watcher>
 
   constructor() {
     this.id = id++
+    this.subs = []
+  }
+
+  depend() {
+    Dep.target && this.subs.push(Dep.target)
   }
 }
 
