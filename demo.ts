@@ -10,4 +10,5 @@ const vm = new Vue({
   },
 })
 
+
 window.vm = vm
