@@ -1,5 +1,5 @@
 import { Component } from "@/types/component"
-import { popTarget, pushTarget } from "./dep"
+import Dep, { popTarget, pushTarget } from "./dep"
 
 let id = 0
 
@@ -8,13 +8,24 @@ export default class Watcher {
   getter: Function
   vm: Component
   value: any
+  deps: Dep[]
+  newDepIds: Set<number>
 
   constructor(vm: Component, expOrFn: Function, isRenderWatcher?: boolean, cb?: Function) {
     this.id = id++
     this.getter = expOrFn
     this.vm = vm
-
+    this.deps = []
+    this.newDepIds = new Set()
     this.value = this.get()
+  }
+
+  addDep(dep: Dep) {
+    if (!this.newDepIds.has(dep.id)) {
+      this.deps.push(dep)
+      this.newDepIds.add(dep.id)
+      dep.addSub(this)
+    }
   }
 
   get() {

@@ -5,14 +5,22 @@ export default class Dep {
   static target: null | Watcher
   id: number
   subs: Array<Watcher>
+  subMap: Map<number, Watcher>
 
   constructor() {
     this.id = id++
     this.subs = []
+    this.subMap = new Map<number, Watcher>()
   }
 
   depend() {
-    Dep.target && this.subs.push(Dep.target)
+    if (Dep.target) {
+      Dep.target.addDep(this)
+    }
+  }
+
+  addSub(sub: Watcher) {
+    this.subs.push(sub)
   }
 }
 

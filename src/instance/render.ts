@@ -49,6 +49,7 @@ export function renderMixin(Vue: typeof Component) {
       this._update(this._render())
     }
 
-    new Watcher(this, updateComponent, true)
+    const watcher = new Watcher(this, updateComponent, true)
+    console.log(watcher)
   }
 }
