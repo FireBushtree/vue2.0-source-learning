@@ -28,6 +28,10 @@ export default class Watcher {
     }
   }
 
+  update() {
+    this.get()
+  }
+
   get() {
     pushTarget(this)
     const val = this.getter.call(this.vm, this.vm)

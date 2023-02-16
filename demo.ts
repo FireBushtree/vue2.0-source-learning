@@ -10,5 +10,8 @@ const vm = new Vue({
   },
 })
 
+setTimeout(() => {
+  vm.name = 'owen huang'
+}, 2000)
 
 window.vm = vm

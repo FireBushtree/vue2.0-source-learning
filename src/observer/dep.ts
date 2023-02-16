@@ -22,6 +22,10 @@ export default class Dep {
   addSub(sub: Watcher) {
     this.subs.push(sub)
   }
+
+  notify() {
+    this.subs.forEach(item => item.update())
+  }
 }
 
 Dep.target = null

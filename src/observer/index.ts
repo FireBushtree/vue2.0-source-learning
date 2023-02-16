@@ -69,6 +69,7 @@ export function defineReactive(obj: object, key: string, val: any) {
       }
 
       observe(val)
+      dep.notify()
     }
   })
 }

@@ -29,6 +29,7 @@ export function renderMixin(Vue: typeof Component) {
       if (vm.$el) {
         document.body.insertBefore(vnode.elm, vm.$el)
         document.body.removeChild(vnode.elm.nextSibling)
+        vm.$el = vnode.elm
       }
     }
 
